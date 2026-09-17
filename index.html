@@ -129,8 +129,12 @@
   var TRIAL_BADGE = "[ ⚠️ تنبيه: هذه الشهادة صادرة من نسخة تجريبية تجارية (ProTech Trial) ]";
 
   // 🔐 قائمة مفاتيح الورش المعتمدة رسمياً على الشبكة (بصمات المفتاح العام بصيغة hex).
-  // اتركها فارغة أثناء التوزيع المفتوح. أضف بصمة كل ورشة مشتركة لتفعيل البوابة.
-  var AUTHORIZED_SHOPS = [];
+  // البوابة مغلقة افتراضياً: أي شهادة لا تنتمي لبصمة مسجّلة هنا تُرفض رفضاً قاطعاً.
+  // استبدل المفتاح الوهمي التالي ببصمة المفتاح العام الحقيقية لكل ورشة مشتركة في الشبكة.
+  var AUTHORIZED_SHOPS = [
+    // مفتاح وهمي (64 خانة hex) — لا يطابق أي مفتاح عام حقيقي، ويُبقي البوابة مغلقة افتراضياً.
+    "0000000000000000000000000000000000000000000000000000000000000000"
+  ];
 
   var resultEl = document.getElementById("result");
 
@@ -225,22 +229,23 @@
       return;
     }
 
-    // 🔐 Trust Model Gate: إن كانت قائمة الورش المعتمدة غير فارغة، فيجب أن تكون
-    // بصمة المفتاح العام للورشة المُصدِرة مسجّلة داخلها. (قائمة فارغة = بوابة مفتوحة حالياً)
+    // 🔐 Trust Model Gate (إلزامي): يجب أن تكون بصمة المفتاح العام للورشة المُصدِرة
+    // مسجّلة داخل AUTHORIZED_SHOPS. غير ذلك => رفض قاطع وعدم اعتماد الشهادة إطلاقاً.
     var pubNorm = String(p.shop_pub || "").trim().toLowerCase();
-    var shopAuthorized = true;
-    if (AUTHORIZED_SHOPS.length > 0) {
-      shopAuthorized = false;
-      for (var i = 0; i < AUTHORIZED_SHOPS.length; i++) {
-        if (String(AUTHORIZED_SHOPS[i]).trim().toLowerCase() === pubNorm) {
-          shopAuthorized = true;
-          break;
-        }
+    var shopAuthorized = false;
+    for (var i = 0; i < AUTHORIZED_SHOPS.length; i++) {
+      if (String(AUTHORIZED_SHOPS[i]).trim().toLowerCase() === pubNorm) {
+        shopAuthorized = true;
+        break;
       }
     }
 
     if (!shopAuthorized) {
-      html += '<div class="banner darkred">🚨 شهادة غير معتمدة - الورشة غير مسجلة رسمياً بالشبكة</div>';
+      resultEl.innerHTML =
+        '<div class="banner darkred">🚨 شهادة غير معتمدة - الورشة غير مسجلة رسمياً بالشبكة</div>' +
+        '<div class="card"><p class="muted">بصمة المفتاح العام لهذه الورشة غير موجودة في قائمة الورش المعتمدة رسمياً. لا يمكن اعتماد هذه الوثيقة ولا بأي شكل حتى تقوم الورشة بتسجيل مفتاحها في الشبكة.</p>' +
+        '<p class="fp">' + esc(p.shop_pub || "—") + '</p></div>';
+      return;
     }
 
     if (p.is_trial) {
